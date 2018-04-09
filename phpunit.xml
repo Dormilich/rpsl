@@ -1,0 +1,31 @@
+<phpunit 
+   backupGlobals="false"
+   backupStaticAttributes="false"
+   bootstrap="tests/phpunit.php"
+   colors="true"
+   convertErrorsToExceptions="true"
+   convertNoticesToExceptions="true"
+   convertWarningsToExceptions="true"
+   processIsolation="false"
+   stopOnFailure="false"
+   syntaxCheck="false"
+>
+   <testsuites>
+      <testsuite name="attribute">
+         <directory suffix="Test.php">./tests/attribute</directory>
+      </testsuite>
+      <testsuite name="object">
+         <directory suffix="Test.php">./tests/object</directory>
+      </testsuite>
+   </testsuites>
+
+   <filter>
+      <whitelist processUncoveredFilesFromWhitelist="true">
+         <directory suffix=".php">./src</directory>
+      </whitelist>
+   </filter>
+
+    <logging>
+        <log type="coverage-html" target="./coverage" lowUpperBound="50" highLowerBound="80"/>
+    </logging>
+</phpunit>

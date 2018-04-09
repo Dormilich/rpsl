@@ -1,0 +1,10 @@
+{
+  "link": {
+    "xlink:type": "locator",
+    "xlink:href": "http://rest.example.org/rpsl/foo/PHPUNIT-TEST"
+  },
+  "name": "name",
+  "value": "PHPUNIT-TEST",
+  "referenced-type": "foo",
+  "comment": "Filtered"
+}
