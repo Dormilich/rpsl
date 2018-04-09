@@ -3,6 +3,8 @@
 
 namespace Dormilich\RPSL;
 
+use Dormilich\RPSL\AttributeInterface;
+use Dormilich\RPSL\Exceptions\InvalidAttributeException;
 use Dormilich\RPSL\Exceptions\IncompleteObjectException;
 
 interface ObjectInterface
