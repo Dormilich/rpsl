@@ -1,5 +1,5 @@
 <?php
-// Object.php
+// AbstractObject.php
 
 namespace Dormilich\RPSL;
 
@@ -14,13 +14,12 @@ use Dormilich\RPSL\Exceptions\InvalidValueException;
  * A child class must
  *  1) set the class name to the type’s name using CamelCase (inet6num => Inet6num, aut-num => AutNum)
  *  2) configure the attributes for the RPSL object
- *  3) if the primary key is not the same as the type, implement an appropriate constructor
+ *  3) if the primary key is not the same as the type, implement an appropriate converter
  * 
  * A child class should
- *  - set the primary key on instantiation
  *  - set a "VERSION" constant
  */
-abstract class Object implements ObjectInterface, NamespaceAware, \ArrayAccess, \IteratorAggregate, \Countable, \JsonSerializable
+abstract class AbstractObject implements ObjectInterface, NamespaceAware, \ArrayAccess, \IteratorAggregate, \Countable, \JsonSerializable
 {
     use Traits\ObjectAttributes
       , Traits\ObjectName
@@ -40,10 +39,10 @@ abstract class Object implements ObjectInterface, NamespaceAware, \ArrayAccess, 
     {
         // auto-set name from class
         $this->setName();
-        // just a safety measure ... should be re-defined in init()
+        // just a safety measure ... should be re-defined in configure()
         $this->define( $this->getName(), AttributeInterface::MANDATORY, AttributeInterface::SINGLE );
         // define attributes
-        $this->init();
+        $this->configure();
         // set primary key attributes
         $keys = call_user_func_array( [$this, 'keysFromInput'], func_get_args() );
         $this->setKey( $keys );
@@ -54,7 +53,7 @@ abstract class Object implements ObjectInterface, NamespaceAware, \ArrayAccess, 
      * 
      * @return void
      */
-    abstract protected function init();
+    abstract protected function configure();
 
     /**
      * Create an attribute and add it to the attribute list. If a public 

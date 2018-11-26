@@ -2,24 +2,25 @@
 
 use Dormilich\RPSL\Attribute;
 use Dormilich\RPSL\AttributeInterface as Attr;
-use Dormilich\RPSL\Object;
+use Dormilich\RPSL\AbstractObject;
+use Dormilich\RPSL\ObjectInterface;
 use PHPUnit\Framework\TestCase;
 
 class ObjectTest extends TestCase
 {
     private function object( $handle )
     {
-        return $this->getMockForAbstractClass( Object::class, [ $handle ], 'Foo' );
+        return $this->getMockForAbstractClass( AbstractObject::class, [ $handle ], 'Foo' );
     }
 
-    private function define( Object $obj, $name, $multiple = false, $mandatory = true )
+    private function define( ObjectInterface $obj, $name, $multiple = false, $mandatory = true )
     {
         $rm = new \ReflectionMethod( $obj, 'define' );
         $rm->setAccessible( true );
         $rm->invoke( $obj, $name, $mandatory, $multiple );
     }
 
-    private function generate( Object $obj, $name, $multiple = false )
+    private function generate( ObjectInterface $obj, $name, $multiple = false )
     {
         $rm = new \ReflectionMethod( $obj, 'generated' );
         $rm->setAccessible( true );
