@@ -20,7 +20,7 @@ use Dormilich\RPSL\Exceptions\InvalidValueException;
  *  - set the primary key on instantiation
  *  - set a "VERSION" constant
  */
-abstract class Object implements ObjectInterface, NamespaceAware, \ArrayAccess, \Iterator, \Countable, \JsonSerializable
+abstract class Object implements ObjectInterface, NamespaceAware, \ArrayAccess, \IteratorAggregate, \Countable, \JsonSerializable
 {
     use Traits\ObjectAttributes
       , Traits\ObjectName
@@ -38,11 +38,15 @@ abstract class Object implements ObjectInterface, NamespaceAware, \ArrayAccess, 
      */
     public function __construct( $value )
     {
-        $this->init();
+        // auto-set name from class
         $this->setName();
-        $this->setKey( [
-            $this->getName() => $value,
-        ] );
+        // just a safety measure ... should be re-defined in init()
+        $this->define( $this->getName(), AttributeInterface::MANDATORY, AttributeInterface::SINGLE );
+        // define attributes
+        $this->init();
+        // set primary key attributes
+        $keys = call_user_func_array( [$this, 'keysFromInput'], func_get_args() );
+        $this->setKey( $keys );
     }
 
     /**
@@ -98,7 +102,6 @@ abstract class Object implements ObjectInterface, NamespaceAware, \ArrayAccess, 
 
     /**
      * Convert the object as a textual list of its defined attributes. 
-     * Requires the Attribute implementation to be iterable.
      * 
      * @return string
      */
@@ -106,44 +109,23 @@ abstract class Object implements ObjectInterface, NamespaceAware, \ArrayAccess, 
     {
         $max = 3 + max( array_map( 'strlen', $this->getAttributeNames() ) );
 
-        $text = '';
-        // can’t rely on the AttributeValue object being used
-        foreach ( $this as $name => $attr ) {
-            foreach ( $attr as $value ) {
-                $text .= sprintf( "%-{$max}s %s\n", $name . ':', $value );
-            }
-        }
-        return $text;
+        return array_reduce($this->toList(), function ($text, AttributeValue $item) use ($max) {
+            return $text .= sprintf( "%-{$max}s %s\n", $item->name() . ':', $item );
+        }, '');
     }
 
     /**
-     * Convert object into an array, where all objects are converted into their 
-     * array equivalent.
+     * Convert object into an array of value objects.
      * 
-     * @return array
+     * @return AttributeValue[]
      */
-    public function toArray()
+    public function toList()
     {
-        $json  = json_encode( $this->jsonAttributes() );
-        $array = json_decode( $json, true );
-
-        return $array;
-    }
-
-    /**
-     * Get the array representation of all attributes that are populated with 
-     * values. Generated attributes are ignored since they are always generated 
-     * by the RPSL DB.
-     * 
-     * @return array JSON compatible array.
-     */
-    protected function jsonAttributes()
-    {
-        $json = array_map( function ( JsonSerializable $attr ) {
+        $values = array_map( function ( \JsonSerializable $attr ) {
             return $attr->jsonSerialize();
         }, $this->getDefinedAttributes() );
 
-        return call_user_func_array( 'array_merge', $json );
+        return array_reduce( $values, 'array_merge', [] );
     }
 
     /**
@@ -182,24 +164,6 @@ abstract class Object implements ObjectInterface, NamespaceAware, \ArrayAccess, 
         }, true );
     }
 
-    /**
-     * Throw an exception when a required attribute is not defined.
-     * 
-     * @return boolean
-     * @throws IncompleteObjectException
-     */
-    public function validate()
-    {
-        foreach ( $this->getAttributes() as $attr ) {
-            if ( $attr->isRequired() and ! $attr->isDefined() ) {
-                $msg = sprintf( 'Mandatory attribute "%s" is not set.', $attr->getName() );
-                throw new IncompleteObjectException( $msg );
-            }
-        }
-
-        return true;
-    }
-
 // --- PHP INTERFACES -------------
 
     /**
@@ -212,7 +176,7 @@ abstract class Object implements ObjectInterface, NamespaceAware, \ArrayAccess, 
      */
     public function jsonSerialize()
     {
-        return $this->jsonAttributes();
+        return $this->toList();
     }
 
     /**
@@ -286,47 +250,12 @@ abstract class Object implements ObjectInterface, NamespaceAware, \ArrayAccess, 
     }
 
     /**
-     * @see http://php.net/Iterator
-     * @return void
+     * @see http://php.net/IteratorAggregate
+     * @return Iterator
      */
-    public function rewind()
+    public function getIterator()
     {
-        reset( $this->attributes );
-    }
-    
-    /**
-     * @see http://php.net/Iterator
-     * @return AttributeInterface
-     */
-    public function current()
-    {
-        return current( $this->attributes );
-    }
-    
-    /**
-     * @see http://php.net/Iterator
-     * @return integer
-     */
-    public function key()
-    {
-        return key( $this->attributes );
-    }
-    
-    /**
-     * @see http://php.net/Iterator
-     * @return void
-     */
-    public function next()
-    {
-        next( $this->attributes );
-    }
-    
-    /**
-     * @see http://php.net/Iterator
-     * @return boolean
-     */
-    public function valid()
-    {
-        return NULL !== key( $this->attributes );
+        $data = $this->getAttributes( true );
+        return new \ArrayIterator( $data );
     }
 }

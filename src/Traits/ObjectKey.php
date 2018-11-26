@@ -16,6 +16,21 @@ trait ObjectKey
     private $primaryKey;
 
     /**
+     * @see ObjectAttributes
+     */
+    abstract public function attr( $name );
+
+    /**
+     * @see ObjectAttributes
+     */
+    abstract public function set( $name, $value );
+
+    /**
+     * @see ObjectName
+     */
+    abstract public function getName();
+
+    /**
      * Useful helper in form templates. This needs to be an array since Route / 
      * Route6 have a composite primary key. 
      * 
@@ -43,9 +58,20 @@ trait ObjectKey
 
         $this->primaryKey = array_keys( $keys );
 
-        foreach ( $keys as $key => $value) {
+        foreach ( $keys as $key => $value ) {
             $this->set( $key, $value );
         }
+    }
+
+    /**
+     * Convert constructor argument into a key name/key value list.
+     * 
+     * @param string $value 
+     * @return array
+     */
+    protected function keysFromInput( $value )
+    {
+        return [ $this->getName() => $value ];
     }
 
     /**

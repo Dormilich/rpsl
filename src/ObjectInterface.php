@@ -75,12 +75,4 @@ interface ObjectInterface
      * @return boolean
      */
     public function isValid();
-
-    /**
-     * Throw an exception when a required attribute is not defined.
-     * 
-     * @return void
-     * @throws IncompleteObjectException
-     */
-    public function validate();
 }

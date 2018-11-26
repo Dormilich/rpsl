@@ -21,7 +21,7 @@
     },
     "autoload": {
         "psr-4": {
-            "Dormilich\\RPSL\\": "src/RPSL/"
+            "Dormilich\\RPSL\\": "src/"
         }
     },
     "autoload-dev": {
