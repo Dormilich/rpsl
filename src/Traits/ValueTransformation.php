@@ -4,9 +4,11 @@
 namespace Dormilich\RPSL\Traits;
 
 use Dormilich\RPSL\AttributeValue;
+use Dormilich\RPSL\DataInterface;
 use Dormilich\RPSL\ObjectInterface;
 use Dormilich\RPSL\Exceptions\InvalidDataTypeException;
 use Dormilich\RPSL\Exceptions\InvalidValueException;
+use Dormilich\RPSL\Transformers\TransformerInterface;
 
 /**
  * @uses Dormilich\RPSL\AttributeInterface
@@ -16,10 +18,10 @@ trait ValueTransformation
     /**
      * @var callable Validation callback.
      */
-    protected $validator;
+    protected $validator = 'is_string';
 
     /**
-     * @var callable String input transformation.
+     * @var TransformerInterface Value transformation.
      */
     protected $transformer;
 
@@ -48,25 +50,62 @@ trait ValueTransformation
      *          value string as parameter and must return the modified string.
      * @return self
      */
-    public function apply( callable $callback )
+    public function apply( TransformerInterface $transformer )
     {
-        $this->transformer = $callback;
+        $this->transformer = $transformer;
 
         return $this;
     }
 
     /**
-     * Apply some last-chance modification to the value before it enters validation.
+     * Converts a single value to an AttributeValue object.
      *
-     * @param mixed $value
-     * @return string
+     * @param string|object $value
+     * @return AttributeValue
+     * @throws InvalidDataTypeException Invalid data type of the value.
+     * @throws InvalidValueException Validation failed.
+     */
+    protected function convert( $value )
+    {
+        $obj = $this->transform( $value );
+        $obj->setAttribute( $this );
+
+        if ( $this->validate( $obj ) ) {
+            return $obj;
+        }
+
+        $msg = 'Value "%s" is not allowed for the [%s] attribute.';
+        $msg = sprintf( $msg, $obj->value(), $this->getName() );
+        throw new InvalidValueException( $msg );
+    }
+
+    /**
+     * Convert input value into an AttributeValue object.
+     * 
+     * @param mixed $value 
+     * @return AttributeValue
+     * @throws InvalidDataTypeException Invalid data type of the value.
      */
     protected function transform( $value )
     {
-        if ( is_callable( $this->transformer ) ) {
-            return call_user_func( $this->transformer, $value );
+        if ( $value instanceof AttributeValue ) {
+            return clone $value;
         }
-        return $value;
+
+        if ( $value instanceof ObjectInterface or $value instanceof DataInterface ) {
+            return new AttributeValue( $value );
+        }
+
+        $data = $this->transformer->transform( $value );
+
+        if ( is_string( $data ) ) {
+            return new AttributeValue( $data );
+        }
+
+        $type = is_object( $value ) ? get_class( $value ) : gettype( $value );
+        $msg = 'The [%s] attribute does not allow the %s data type.';
+        $msg = sprintf( $msg, $this->getName(), $type );
+        throw new InvalidDataTypeException( $msg );
     }
 
     /**
@@ -77,59 +116,6 @@ trait ValueTransformation
      */
     protected function validate( AttributeValue $obj )
     {
-        if ( is_callable( $this->validator ) ) {
-            return call_user_func( $this->validator, $obj->value() );
-        }
-        return true;
-        
-    }
-
-    /**
-     * Converts a single value to an AttributeValue object.
-     *
-     * @param string|object $value
-     * @return AttributeValue
-     * @throws InvalidValueException Validation failed.
-     */
-    protected function convert( $value )
-    {
-        if ( $value instanceof AttributeValue ) {
-            $obj = clone $value;
-        }
-        else {
-            if ( ! $value instanceof ObjectInterface ) {
-                $value = $this->stringify( $value );
-            }
-            $obj = new AttributeValue( $value );
-        }
-
-        $obj->setAttribute( $this );
-
-        if ( $this->validate( $obj ) ) {
-            return $obj;
-        }
-
-        $msg = 'Value "%s" is not allowed for the [%s] attribute.';
-        throw new InvalidValueException( sprintf( $msg, $obj->value(), $this->getName() ) );
-    }
-
-    /**
-     * Converts a single value to a string.
-     *
-     * @param mixed $value A scalar or transformable object.
-     * @return string Converted value.
-     * @throws InvalidDataTypeException Invalid data type of the value(s).
-     */
-    final protected function stringify( $value )
-    {
-        $value = $this->transform( $value );
-
-        if ( is_scalar( $value ) or ( is_object( $value ) and method_exists( $value, '__toString' ) ) ) {
-            return (string) $value;
-        }
-
-        $msg = 'The [%s] attribute does not allow the %s data type.';
-        $type = is_object( $value ) ? get_class( $value ) : gettype( $value );
-        throw new InvalidDataTypeException( sprintf( $msg, $this->getName(), $type ) );
+        return call_user_func( $this->validator, $obj->value() );
     }
 }
