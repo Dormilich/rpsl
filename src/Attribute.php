@@ -5,7 +5,11 @@ namespace Dormilich\RPSL;
 
 use Dormilich\RPSL\Exceptions\InvalidDataTypeException;
 use Dormilich\RPSL\Exceptions\InvalidValueException;
+use Dormilich\RPSL\Transformers\DefaultTransformer;
 
+/**
+ * Define CRUD operations for attribute values and metadata for attribute handling.
+ */
 class Attribute implements AttributeInterface, NamespaceAware, \ArrayAccess, \Countable, \Iterator, \JsonSerializable
 {
     use Traits\ValueTransformation;
@@ -36,7 +40,10 @@ class Attribute implements AttributeInterface, NamespaceAware, \ArrayAccess, \Co
     protected $multiple;
 
     /**
-     * Object constructor.
+     * Object constructor. The calling object('s namespace) is needed for the 
+     * `AttributeValue::object()` method to properly re-create the referenced 
+     * RPSL object. It may be omitted if the RPSL objects are defined in the 
+     * global namespace or the web service does not provide type information.
      *
      * @param string $name Attribute name.
      * @param boolean $mandatory If the attribute is mandatory/required.
@@ -47,12 +54,14 @@ class Attribute implements AttributeInterface, NamespaceAware, \ArrayAccess, \Co
     public function __construct( $name, $mandatory, $multiple, NamespaceAware $obj = NULL )
     {
         $this->name = (string) $name;
-        $this->mandatory = filter_var($mandatory, FILTER_VALIDATE_BOOLEAN);
-        $this->multiple  = filter_var($multiple,  FILTER_VALIDATE_BOOLEAN);
+        $this->mandatory = filter_var( $mandatory, FILTER_VALIDATE_BOOLEAN );
+        $this->multiple  = filter_var( $multiple,  FILTER_VALIDATE_BOOLEAN );
 
         if ( $obj ) {
             $this->namespace = $obj->getNamespace();
         }
+
+        $this->transformer = new DefaultTransformer;
     }
 
     /**
@@ -89,13 +98,34 @@ class Attribute implements AttributeInterface, NamespaceAware, \ArrayAccess, \Co
     }
 
     /**
+     * The negation of `isDefined()`.
+     * 
+     * @see Attribute::isDefined()
+     * @return boolean
+     */
+    public function isEmpty()
+    {
+        return ! $this->isDefined();
+    }
+
+    /**
      * Whether the attribute is required/mandatory.
      *
      * @return boolean
      */
-    public function isRequired()
+    public function isMandatory()
     {
         return $this->mandatory;
+    }
+
+    /**
+     * Whether the attribute is optional.
+     *
+     * @return boolean
+     */
+    public function isOptional()
+    {
+        return ! $this->isMandatory();
     }
 
     /**
@@ -109,25 +139,47 @@ class Attribute implements AttributeInterface, NamespaceAware, \ArrayAccess, \Co
     }
 
     /**
+     * Whether the attribute is single.
+     *
+     * @return boolean
+     */
+    public function isSingle()
+    {
+        return ! $this->isMultiple();
+    }
+
+    /**
      * Get the current value(s) of the attribute.
      * If the value is unset NULL is returned, if the attribute
      * only allows a single value, that value is returned, otherwise an array.
      *
-     * @return mixed
+     * @return NULL|string|string[]
      */
     public function getValue()
     {
-        if ( count( $this->values ) === 0 ) {
-            return NULL;
+        $values = $this->getValues();
+
+        if ( count( $values ) === 0 ) {
+            $data = NULL;
+        }
+        elseif ( $this->isMultiple() ) {
+            $data = $values;
+        }
+        else {
+            $data = reset( $values );
         }
 
-        $values = array_map( 'strval', $this->values );
+        return $data;
+    }
 
-        if ( $this->multiple ) {
-            return $values;
-        }
-
-        return reset( $values );
+    /**
+     * Get the value strings for this attribute. Always returns an array.
+     * 
+     * @return string[]
+     */
+    public function getValues()
+    {
+        return array_map( 'strval', $this->values );
     }
 
     /**
@@ -169,44 +221,75 @@ class Attribute implements AttributeInterface, NamespaceAware, \ArrayAccess, \Co
             $value = $value->getValue();
         }
 
-        if ( NULL === $value ) {
-            return $this;
-        }
-
-        foreach ( $this->loop( $value ) as $v ) {
-            $this->values[] = $this->convert( $v );
+        if ( NULL !== $value ) {
+            $this->setValues( $value );
         }
 
         return $this;
     }
 
     /**
-     * Convert input into an iterable structure.
-     *  - Block text is converted into an array
-     *  - single valued attributes are reset and the value is wrapped in an array
-     *  - any input left is wrapped in an array
+     * Convert and save attribute values.
+     * 
+     * @param mixed $data 
+     * @return void
+     */
+    private function setValues( $data )
+    {
+        if ( $this->isSingle() ) {
+            $this->values = [];
+        }
+
+        $values = $this->loop( $data );
+
+        foreach ( $values as $value ) {
+            $this->values[] = $this->convert( $value );
+        }
+    }
+
+    /**
+     * Convert input into an iterable structure. For single-valued attributes 
+     * the value is always wrapped into an array to guarantee that only one 
+     * iteration is done.
      *
      * @param mixed $value
-     * @return array
+     * @return iterable
      */
     protected function loop( $value )
     {
-        // split block text regardless of attribute type
-        // otherwise the created RPSL block text is likely to be invalid
-        if ( is_string( $value ) and strpos( $value, "\n" ) !== false ) {
-            $value = explode( "\n", $value );
+        $value = $this->splitBlockText( $value );
+
+        if ( $this->isSingle() ) {
+            $data = [ $value ];
         }
-        // wrapping the supposedly-single value in an array makes sure that
-        // only a single iteration is done, even if an array is passed
-        if ( ! $this->multiple ) {
-            $this->values = [];
-            $value = [ $value ];
+        elseif ( is_array( $value ) ) {
+            $data = $value;
         }
-        elseif ( ! is_array( $value ) ) {
-            $value = [ $value ];
+        elseif ( $value instanceof \Traversable ) {
+            $data = $value;
+        }
+        else {
+            $data = [ $value ];
         }
 
-        return $value;
+        return $data;
+    }
+
+    /**
+     * Split block text into several lines. This is done independently from the 
+     * _multiple_ setting since otherwise the created RPSL block text is likely 
+     * to be invalid.
+     * 
+     * @param mixed $data 
+     * @return mixed
+     */
+    private function splitBlockText( $data )
+    {
+        if ( is_string( $data ) and strpos( $data, "\n" ) !== false ) {
+            $data = explode( "\n", $data );
+        }
+
+        return $data;
     }
 
 // --- PHP INTERFACES -------------
@@ -215,11 +298,10 @@ class Attribute implements AttributeInterface, NamespaceAware, \ArrayAccess, \Co
      * Convert the list of values into a name+value object.
      *
      * @see http://php.net/JsonSerializable
-     * @return array
+     * @return AttributeValue[]
      */
     public function jsonSerialize()
     {
-        // empty lines might be intentional ...
         return $this->values;
     }
 
@@ -280,6 +362,32 @@ class Attribute implements AttributeInterface, NamespaceAware, \ArrayAccess, \Co
     }
 
     /**
+     * Convert negative offsets into positive ones.
+     * 
+     * @param integer|string $offset 
+     * @return integer|string
+     */
+    private function fromReverseOffset( $offset )
+    {
+        if ( is_int( $offset ) and $offset < 0 ) {
+            $offset += $this->count();
+        }
+
+        return $offset;
+    }
+
+    /**
+     * Test if an attribute value exists at the given index.
+     * 
+     * @param integer $index 
+     * @return boolean
+     */
+    private function hasOffset( $index )
+    {
+        return isset( $this->values[ $index ] );
+    }
+
+    /**
      * Checks if an Attribute value exists at the given position.
      * 
      * @see http://php.net/ArrayAccess
@@ -288,7 +396,9 @@ class Attribute implements AttributeInterface, NamespaceAware, \ArrayAccess, \Co
      */
     public function offsetExists( $offset )
     {
-        return isset( $this->values[ $offset ] );
+        $offset = $this->fromReverseOffset( $offset );
+
+        return $this->hasOffset( $offset );
     }
 
     /**
@@ -297,20 +407,24 @@ class Attribute implements AttributeInterface, NamespaceAware, \ArrayAccess, \Co
      * 
      * @see http://php.net/ArrayAccess
      * @param string $offset Attribute value index.
-     * @return Object|string|NULL The attribute value.
+     * @return ObjectInterface|string|NULL The attribute value.
      */
     public function offsetGet( $offset )
     {
-        if ( $this->offsetExists( $offset ) ) {
-            $value = $this->values[ $offset ];
-            return $value->object() ?: $value->value();
+        $offset = $this->fromReverseOffset( $offset );
+
+        if ( ! $this->hasOffset( $offset ) ) {
+            return NULL;
         }
 
-        return NULL;
+        $value = $this->values[ $offset ];
+        $data = $this->transformer->reverseTransform( $value );
+
+        return $data;
     }
 
     /**
-     * Update an existing Attibute value. 
+     * Add or update an existing Attibute value. 
      * 
      * @see http://php.net/ArrayAccess
      * @param string $offset Attribute value index.
@@ -319,7 +433,14 @@ class Attribute implements AttributeInterface, NamespaceAware, \ArrayAccess, \Co
      */
     public function offsetSet( $offset, $value )
     {
-        if ( $this->offsetExists( $offset ) ) {
+        if ( NULL === $offset ) {
+            $this->addValue( $value );
+            return;
+        }
+
+        $offset = $this->fromReverseOffset( $offset );
+
+        if ( $this->hasOffset( $offset ) ) {
             $this->values[ $offset ] = $this->convert( $value );
         }
     }
@@ -333,7 +454,9 @@ class Attribute implements AttributeInterface, NamespaceAware, \ArrayAccess, \Co
      */
     public function offsetUnset( $offset )
     {
-        if ( $this->offsetExists( $offset ) ) {
+        $offset = $this->fromReverseOffset( $offset );
+
+        if ( $this->hasOffset( $offset ) ) {
             array_splice( $this->values, $offset, 1 );
         }
     }

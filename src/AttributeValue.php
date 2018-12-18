@@ -6,6 +6,9 @@ namespace Dormilich\RPSL;
 use Dormilich\RPSL\Exceptions\InvalidDataTypeException;
 use Dormilich\RPSL\Exceptions\InvalidValueException;
 
+/**
+ * Store data and metadata for a single attribute value.
+ */
 final class AttributeValue implements \JsonSerializable
 {
     /**
@@ -39,22 +42,23 @@ final class AttributeValue implements \JsonSerializable
      * Note: This object is used internally and should not be set up manually. 
      * 
      * @param string|Object $value Attribute value or RPSL object.
+     * @param string $comment (optional) Attribute comment.
+     * @param string $type (optional) Attribute value type.
      * @return self
      * @throws InvalidDataTypeException Invalid argument.
      */
     public function __construct( $value )
     {
-        // standard input
-        if ( is_string( $value ) ) {
+        // web service data
+        if ( func_num_args() === 3 ) {
+            // I have no idea what data model the APNIC comes up with
             $this->setFromString( $value );
+            $this->setComment( func_get_arg( 1 ) );
+            $this->type = func_get_arg( 2 ) ?: null;
         }
-        // array from JSON
-        elseif ( is_array( $value ) ) {
-            $this->setFromArray( $value );
-        }
-        // object from JSON
-        elseif ( $value instanceof \stdClass ) {
-            $this->setFromArray( get_object_vars( $value ) );
+        // standard input
+        elseif ( is_string( $value ) ) {
+            $this->setFromString( $value );
         }
         // RPSL object
         elseif ( $value instanceof ObjectInterface ) {
@@ -112,36 +116,8 @@ final class AttributeValue implements \JsonSerializable
     protected function setFromObject( ObjectInterface $input )
     {
         $this->setFromString( $input->getHandle() );
-        // the handle SHOULD NOT contain a comment ...
-        $this->comment = NULL;
-
+        $this->setNamespace( $input );
         $this->type = $input->getName();
-
-        if ( $input instanceof NamespaceAware ) {
-            $this->namespace = $input->getNamespace();
-        }
-    }
-
-    /**
-     * This is only supposed to be used by the web service when creating objects 
-     * from the response JSON.
-     * 
-     * @param array $input 
-     * @return void
-     */
-    protected function setFromArray( array $input )
-    {
-        if ( isset( $input[ 'value' ] ) ) {
-            $this->setValue( (string) $input[ 'value' ] );
-        }
-
-        if ( isset( $input[ 'comment' ] ) ) {
-            $this->setComment( (string) $input[ 'comment' ] );
-        }
-
-        if ( isset( $input[ 'referenced-type' ] ) ) {
-            $this->type = (string) $input[ 'referenced-type' ];
-        }
     }
 
     /**
@@ -185,10 +161,24 @@ final class AttributeValue implements \JsonSerializable
     {
         if ( ! $this->attribute ) {
             $this->attribute = $attr->getName();
+            $this->setNamespace( $attr );
+        }
+    }
+
+    /**
+     * Set the namespace to re-create an RPSL object.
+     * 
+     * @param object $obj 
+     * @return void
+     */
+    protected function setNamespace( $obj )
+    {
+        if ( $this->namespace ) {
+            return;
         }
 
-        if ( ! $this->namespace and $attr instanceof NamespaceAware ) {
-            $this->namespace = $attr->getNamespace();
+        if ( $obj instanceof NamespaceAware ) {
+            $this->namespace = $obj->getNamespace();
         }
     }
 
@@ -210,12 +200,16 @@ final class AttributeValue implements \JsonSerializable
     }
 
     /**
+     * Returns a generic object with the properties `name`, `value`, and 
+     * optionally `comment`.
+     * 
      * @see http://php.net/jsonserializable
      * @return stdClass
      */
     public function jsonSerialize()
     {
         $json = new \stdClass;
+
         $json->name  = $this->attribute;
         $json->value = $this->value;
 
@@ -239,9 +233,20 @@ final class AttributeValue implements \JsonSerializable
     }
 
     /**
+     * The negation of `isDefined()`.
+     * 
+     * @see AttributeValue::isDefined()
+     * @return boolean
+     */
+    public function isEmpty()
+    {
+        return ! $this->isDefined();
+    }
+
+    /**
      * Get the name of the associated attribute.
      * 
-     * @return type
+     * @return string
      */
     public function name()
     {
@@ -251,7 +256,7 @@ final class AttributeValue implements \JsonSerializable
     /**
      * Get the bare attribute value.
      * 
-     * @return type
+     * @return string
      */
     public function value()
     {
@@ -290,7 +295,7 @@ final class AttributeValue implements \JsonSerializable
             return NULL;
         }
 
-        $class = $this->getClass( $this->type );
+        $class = $this->getClass();
 
         if ( class_exists( $class ) ) {
             return new $class( $this->value );
@@ -303,14 +308,13 @@ final class AttributeValue implements \JsonSerializable
     /**
      * Convert object type into object class name.
      * 
-     * @param string $type Object name to convert.
      * @return string Object class.
      */
-    protected function getClass( $type )
+    protected function getClass()
     {
         $name = preg_replace_callback( '/-?\b([a-z])/', function ( $match ) {
             return strtoupper( $match[ 1 ] );
-        }, $type );
+        }, $this->type );
 
         return $this->namespace . '\\' . $name;
     }

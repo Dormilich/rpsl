@@ -14,11 +14,18 @@ interface AttributeInterface
     const SINGLE = false;
 
     /**
-     * Whether the attribute is required/mandatory.
+     * Whether the attribute is mandatory.
      * 
      * @return boolean
      */
-    public function isRequired();
+    public function isMandatory();
+
+    /**
+     * Whether the attribute is optional.
+     * 
+     * @return boolean
+     */
+    public function isOptional();
 
     /**
      * Whether the attribute allows multiple values.
@@ -26,6 +33,13 @@ interface AttributeInterface
      * @return boolean
      */
     public function isMultiple();
+
+    /**
+     * Whether the attribute is single.
+     * 
+     * @return boolean
+     */
+    public function isSingle();
 
     /**
      * Get the name of the attribute.
@@ -48,6 +62,14 @@ interface AttributeInterface
      * @return mixed
      */
     public function getValue();
+
+    /**
+     * Get the values of the attribute independent from the cardinality of the 
+     * attribute.
+     * 
+     * @return array
+     */
+    public function getValues();
 
     /**
      * Set the value(s) of the attribute.

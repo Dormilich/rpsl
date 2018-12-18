@@ -110,10 +110,10 @@ class ObjectTest extends TestCase
         $this->define( $obj, 'comment', true, false );
 
         $obj->set( 'comment', 'x' );
-        $this->assertEquals( ['x'], $obj->attr( 'comment' )->getValue() );
+        $this->assertEquals( [ 'x' ], $obj->attr( 'comment' )->getValue() );
 
         $obj->set( 'comment', 'y' );
-        $this->assertEquals( ['y'], $obj->attr( 'comment' )->getValue() );
+        $this->assertEquals( [ 'y' ], $obj->attr( 'comment' )->getValue() );
     }
 
     public function testSetSingleAttributeValue()
@@ -138,10 +138,10 @@ class ObjectTest extends TestCase
         $this->assertTrue( $obj->attr( 'comment' )->isMultiple() );
 
         $obj->add( 'comment', 'x' );
-        $this->assertEquals( ['x'], $obj->attr( 'comment' )->getValue() );
+        $this->assertEquals( [ 'x' ], $obj->attr( 'comment' )->getValue() );
 
         $obj->add( 'comment', 'y' );
-        $this->assertEquals( ['x', 'y'], $obj->attr( 'comment' )->getValue() );
+        $this->assertEquals( [ 'x', 'y' ], $obj->attr( 'comment' )->getValue() );
     }
 
     public function testAddSingleAttributeValue()
@@ -224,16 +224,16 @@ class ObjectTest extends TestCase
         $this->define( $obj, 'source', false, true );
         $this->generate( $obj, 'last-modified', false );
 
-        $obj->set( 'comment', ['Franz', 'Georg'] )
+        $obj->set( 'comment', [ 'Franz', 'Georg' ] )
             ->set( 'source', 'phpunit' )
             ->set( 'last-modified', ( new \DateTime( 'now' ))->format( 'c' ))
         ;
 
         $data = [
-            ["name" => "foo", "value" => "bar", "comment" => "test"],
-            ["name" => "comment", "value" => "Franz"],
-            ["name" => "comment", "value" => "Georg"],
-            ["name" => "source", "value" => "phpunit"],
+            [ "name" => "foo", "value" => "bar", "comment" => "test" ],
+            [ "name" => "comment", "value" => "Franz" ],
+            [ "name" => "comment", "value" => "Georg" ],
+            [ "name" => "source", "value" => "phpunit" ],
         ];
         $this->assertJsonStringEqualsJsonString( json_encode( $data ), json_encode( $obj ) );
     }
@@ -245,7 +245,7 @@ class ObjectTest extends TestCase
         $this->define( $obj, 'source', false, true );
         $this->generate( $obj, 'last-modified', false );
 
-        $obj[ 'comment' ] = ['fizz', 'buzz'];
+        $obj[ 'comment' ] = [ 'fizz', 'buzz' ];
 
         $text = $obj->toText();
         $lines = explode( \PHP_EOL, trim( $text )); // removing trailing LF
@@ -267,7 +267,7 @@ class ObjectTest extends TestCase
         $obj = $this->object( NULL );
         $this->define( $obj, 'comment', true, false );
 
-        $obj[ 'comment' ] = ['fizz', 'buzz'];
+        $obj[ 'comment' ] = [ 'fizz', 'buzz' ];
 
         $this->assertCount( 1, $obj );
     }
@@ -280,7 +280,7 @@ class ObjectTest extends TestCase
         $this->define( $obj, 'source', false, true );
         $this->generate( $obj, 'last-modified', false );
 
-        $obj[ 'comment' ] = ['fizz', 'buzz'];
+        $obj[ 'comment' ] = [ 'fizz', 'buzz' ];
 
         $this->assertGreaterThan( 0, count( $obj ));
 
@@ -296,12 +296,20 @@ class ObjectTest extends TestCase
     public function testValidityStatus()
     {
         $obj = $this->object( 'bar' );
+        $this->define( $obj, 'comment', true, false );
         $this->define( $obj, 'source', false, true );
 
+        $required = $obj->getMandatoryAttributes();
+        $this->assertSame( [ 'foo', 'source' ], $required );
+
+        $missing = $obj->getMissingAttributes();
+        $this->assertSame( [ 'source' ], $missing );
         $this->assertFalse( $obj->isValid() );
 
         $obj[ 'source' ] = 'phpunit';
 
+        $missing = $obj->getMissingAttributes();
+        $this->assertCount( 0, $missing );
         $this->assertTrue( $obj->isValid() );
     }
 

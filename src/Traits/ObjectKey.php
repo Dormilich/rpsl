@@ -4,6 +4,7 @@
 namespace Dormilich\RPSL\Traits;
 
 use Dormilich\RPSL\AttributeInterface;
+use Dormilich\RPSL\AttributeValue;
 
 /**
  * @uses ObjectAttributes
@@ -18,7 +19,7 @@ trait ObjectKey
     /**
      * @see ObjectAttributes
      */
-    abstract public function attr( $name );
+    abstract protected function getAttributes( $include_generated = false );
 
     /**
      * @see ObjectAttributes
@@ -82,22 +83,55 @@ trait ObjectKey
      */
     public function getHandle()
     {
-        $primary_attr = array_map( function ( $key ) {
-            return $this->attr( $key );
-        }, $this->primaryKey );
-
+        $primary = $this->getPrimaryAttributes();
         // prevent an incomplete composite primary key value
-        $defined = array_reduce( $primary_attr, function ( $bool, AttributeInterface $attr ) {
-            return $bool and $attr->isDefined();
-        }, true );
-
-        if ( ! $defined ) {
+        if ( ! $this->isHandleDefined( $primary ) ) {
             return NULL;
         }
         // omit comments on primary key attributes
-        return array_reduce( $primary_attr, function ( $value, \Iterator $attr ) {
-            $attr->rewind();
-            return $value . $attr->current()->value();
-        }, '' );
+        $values = $this->getPrimaryValues( $primary );
+
+        return implode( '', $values );
+    }
+
+    /**
+     * Get the attribute objects for the primary key.
+     * 
+     * @return AttributeInterface[]
+     */
+    private function getPrimaryAttributes()
+    {
+        $attr = $this->getAttributes();
+        $keys = array_flip( $this->primaryKey );
+
+        return array_intersect_key( $attr, $keys );
+    }
+
+    /**
+     * Get the attribute values for the primary key.
+     * 
+     * @param AttributeInterface[] $attributes 
+     * @return string[]
+     */
+    private function getPrimaryValues( array $attributes )
+    {
+        // depends on `jsonSerialize()` returning the value objects
+        return array_map( function ( \JsonSerializable $attr ) {
+            return $attr->jsonSerialize()[ 0 ]->value();
+        }, $attributes );
+    }
+
+    /**
+     * Test if the (composite) primary key is correctly defined.
+     * 
+     * @param array $attributes 
+     * @return boolean
+     */
+    private function isHandleDefined( array $attributes )
+    {
+        // it makes no sense for a primary key component to be multi-valued
+        return array_reduce( $attributes, function ( $bool, AttributeInterface $attr ) {
+            return $bool and $attr->isDefined() and $attr->isSingle();
+        }, true );
     }
 }

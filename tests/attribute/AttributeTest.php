@@ -3,7 +3,9 @@
 use Dormilich\RPSL\Attribute;
 use Dormilich\RPSL\AttributeInterface as Attr;
 use Dormilich\RPSL\AttributeValue;
+use Dormilich\RPSL\NamespaceAware;
 use Dormilich\RPSL\ObjectInterface;
+use Dormilich\RPSL\Transformers\TransformerInterface;
 use PHPUnit\Framework\TestCase;
 
 class AttributeTest extends TestCase
@@ -15,6 +17,17 @@ class AttributeTest extends TestCase
         $obj->method( 'getHandle' )->willReturn( $handle );
 
         return $obj;
+    }
+
+    private function getStringObject( $string )
+    {
+        $mock = $this->getMockBuilder( 'stdClass' )
+            ->setMethods( [ '__toString' ] )
+            ->getMock();
+
+        $mock->method( '__toString' )->willReturn( $string );
+
+        return $mock;
     }
 
     // setup - name
@@ -33,14 +46,7 @@ class AttributeTest extends TestCase
     public function constructorPropertyProvider()
     {
         return [
-            [true,  true,  true,  true ], 
-            [true,  false, true,  false], 
-            [false, true,  false, true ], 
-            [false, false, false, false], 
-            [0,     1,     false, true ], 
-            ['yes', 'no',  true,  false], 
-            ['x',   NULL,  false, false],
-            [Attr::MANDATORY, Attr::SINGLE,   true,  false],
+            [Attr::MANDATORY, Attr::SINGLE,   true, false],
             [Attr::OPTIONAL, Attr::MULTIPLE, false, true ],
         ];
     }
@@ -52,8 +58,19 @@ class AttributeTest extends TestCase
     {
         $attr = new Attribute( 'foo', $required, $multiple );
 
-        $this->assertSame( $expect_required, $attr->isRequired() );
+        $this->assertSame( $expect_required, $attr->isMandatory() );
         $this->assertSame( $expect_multiple, $attr->isMultiple() );
+        $this->assertSame( ! $expect_required, $attr->isOptional() );
+        $this->assertSame( ! $expect_multiple, $attr->isSingle() );
+    }
+
+    public function testSetupNamespacedAttribute()
+    {
+        $obj = $this->createMock( NamespaceAware::class );
+        $obj->method( 'getNamespace' )->willReturn( 'Ripe' );
+
+        $attr = new Attribute( 'test', false, false, $obj );
+        $this->assertSame( 'Ripe', $attr->getNamespace() );
     }
 
     // value
@@ -61,7 +78,9 @@ class AttributeTest extends TestCase
     public function testAttributeIsEmptyByDefault()
     {
         $attr = new Attribute( 'foo', true, true );
+
         $this->assertFalse( $attr->isDefined() );
+        $this->assertTrue( $attr->isEmpty() );
         $this->assertNull( $attr->getValue() );
     }
 
@@ -71,6 +90,7 @@ class AttributeTest extends TestCase
         $attr->setValue( 'x' );
 
         $this->assertTrue( $attr->isDefined() );
+        $this->assertFalse( $attr->isEmpty() );
         $this->assertNotNull( $attr->getValue() );
     }
 
@@ -80,6 +100,7 @@ class AttributeTest extends TestCase
         $attr->setValue( '' );
 
         $this->assertFalse( $attr->isDefined() );
+        $this->assertTrue( $attr->isEmpty() );
     }
 
     public function testInputIsConvertedToStrings()
@@ -95,8 +116,7 @@ class AttributeTest extends TestCase
         $attr->setValue( 'bar' );
         $this->assertSame( 'bar', $attr->getValue() );
         // stringifiable object
-        $test = $this->createMock( 'Exception' );
-        $test->method( '__toString' )->willReturn( 'test' );
+        $test = $this->getStringObject( 'test' );
         $attr->setValue( $test );
         $this->assertSame( 'test', $attr->getValue() );
         // boolean
@@ -171,6 +191,48 @@ class AttributeTest extends TestCase
         $this->assertSame( $obj->getHandle(), $attr->getValue() );
     }
 
+    private function getNamespaceValue( AttributeValue $value )
+    {
+        $rc = new \ReflectionClass( AttributeValue::class );
+        $rp = $rc->getProperty( 'namespace' );
+        $rp->setAccessible( true );
+
+        return $rp->getValue( $value );
+    }
+
+    public function testAttributePassesNamespaceToValue()
+    {
+        $obj = $this->createMock( NamespaceAware::class );
+        $obj->method( 'getNamespace' )->willReturn( 'Ripe' );
+
+        $attr = new Attribute( 'foo', false, false, $obj );
+        $attr->setValue( 'phpunit' );
+
+        $value = $attr->current();
+
+        $this->assertInstanceOf( AttributeValue::class, $value );
+        $this->assertSame( 'Ripe', $this->getNamespaceValue( $value ) );
+    }
+
+    public function testAttributeNamespaceResolutionPrefersInput()
+    {
+        $obj = $this->createMock( NamespaceAware::class );
+        $obj->method( 'getNamespace' )->willReturn( 'Ripe' );
+
+        $data = $this->createMock( [ ObjectInterface::class, NamespaceAware::class ] );
+        $data->method( 'getHandle' )->willReturn( 'phpunit' );
+        $data->method( 'getName' )->willReturn( 'role' );
+        $data->method( 'getNamespace' )->willReturn( 'Apnic' );
+
+        $attr = new Attribute( 'foo', false, false, $obj );
+        $attr->setValue( $data );
+
+        $value = $attr->current();
+
+        $this->assertInstanceOf( AttributeValue::class, $value );
+        $this->assertSame( 'Apnic', $this->getNamespaceValue( $value ) );
+    }
+
     /**
      * @expectedException Dormilich\RPSL\Exceptions\InvalidDataTypeException
      * @expectedExceptionMessage The [foo] attribute does not allow the resource data type.
@@ -207,6 +269,16 @@ class AttributeTest extends TestCase
 
         $attr->setValue( $src );
         $this->assertSame( ['fizz', 'buzz'], $attr->getValue() );
+    }
+
+    public function testAttributeAllowsAttributeValue()
+    {
+        $val = new AttributeValue( 'foo#bar' );
+
+        $attr = new Attribute( 'foo', Attr::MANDATORY, Attr::SINGLE );
+        $attr->setValue( $val );
+
+        $this->assertSame( 'foo # bar', $attr->getValue() );
     }
 
     /**
@@ -274,71 +346,59 @@ TXT;
 
     // input transformation
 
-    public function testSetStringValueRunsTransformer()
+    public function testTransformerReceivesInput()
     {
-        $attr = new Attribute( 'test', Attr::MANDATORY, Attr::SINGLE );
-        $attr->apply( 'strtoupper' );
-        $attr->setValue( 'x' );
+        $tf = $this->createMock( TransformerInterface::class );
+        $tf->expects( $this->once() )
+            ->method( 'transform' )
+            ->with( $this->isInstanceOf( 'stdClass' ) )
+            ->will( $this->returnCallback( 'strtoupper' ) );
 
-        $this->assertSame( 'X', $attr->getValue() );
-    }
-
-    public function testTransformerReceivesStringInput()
-    {
-        $obj = $this->createMock( 'Exception' );
-        $obj->method( '__toString' )->willReturn( 'phpunit' );
+        $obj = $this->getStringObject( 'phpunit' );
 
         $attr = new Attribute( 'test', Attr::MANDATORY, Attr::SINGLE );
-
-        $attr->apply( function ( $input ) {
-            $this->assertInstanceOf( 'Exception', $input );
-            return strtoupper( $input );
-        } );
-
+        $attr->apply( $tf );
         $attr->setValue( $obj );
 
         $this->assertSame( 'PHPUNIT', $attr->getValue() );
     }
 
+    // An already valid value must not be invalidated by a transformer. 
+    // References (as read from RPSL objects) are considered already valid.
     public function testSetRpslObjectDoesNotRunTransformer()
     {
+        $tf = $this->createMock( TransformerInterface::class );
+        $tf->expects( $this->never() )->method( 'transform' );
+
         $attr = new Attribute( 'test', Attr::MANDATORY, Attr::SINGLE );
-        $attr->apply( 'strtolower' );
-        // an already valid value must not be invalidated by a transformer 
-        // references ( as read from RPSL object ) are considered already valid
+        $attr->apply( $tf );
+
         $obj = $this->rpsl( 'ABC' );
         $attr->setValue( $obj );
-
-        $this->assertNotEquals( 'abc', $attr->getValue() );
     }
 
+    // An `AttributeValue` object is returned when iterating over an `Attribute` object
     public function testSetValueObjectDoesNotRunTransformer()
     {
+        $tf = $this->createMock( TransformerInterface::class );
+        $tf->expects( $this->never() )->method( 'transform' );
+
+        $obj = new AttributeValue( 'phpunit' );
         $attr = new Attribute( 'test', Attr::MANDATORY, Attr::SINGLE );
-        $attr->apply( 'strtolower' );
-
-        // getting your hands on an AttributeValue is a bit tricky
-        $src = new Attribute( 'source', Attr::MANDATORY, Attr::SINGLE );
-        
-        $obj = $src->setValue( 'XXX' )->current();
-
-        $this->assertInternalType( 'object', $obj ); // prove that we have an AttributeValue object
+        $attr->apply( $tf );
         $attr->setValue( $obj );
-        $this->assertNotEquals( 'xxx', $attr->getValue() );
     }
 
     // input validation
 
     public function inputValueProvider()
     {
-        // @see testSetValueObjectDoesNotRunTransformer
-        $src = new Attribute( 'source', Attr::MANDATORY, Attr::SINGLE );
-        $src->setValue( 'test' );
+        $val = new AttributeValue( 'phpunit' );
 
         return [
-            [ 'test' ],
-            [ $this->rpsl( 'test' ) ],
-            [ $src->current() ],
+            [ 'phpunit' ],                  // string
+            [ $this->rpsl( 'phpunit' ) ],   // RPSL object
+            [ $val ],                       // attribute value
         ];
     }
 
@@ -347,31 +407,33 @@ TXT;
      */
     public function testValidatorIsAlwaysExecuted( $input )
     {
-        $obj = $this->getMockBuilder( 'stdClass' )
-            ->setMethods( [ 'check' ] )
+        $vd = $this->getMockBuilder( 'stdClass' )
+            ->setMethods( [ '__invoke' ] )
             ->getMock();
-        $obj->expects( $this->once() )
-            ->method( 'check' )
-            ->with( $this->identicalTo( 'test' ))
-            ->willReturn( true )
-        ;
+        $vd->expects( $this->once() )
+            ->method( '__invoke' )
+            ->with( $this->identicalTo( 'phpunit' ))
+            ->willReturn( true );
 
         $attr = new Attribute( 'test', Attr::MANDATORY, Attr::SINGLE );
-
-        $attr->test( [$obj, 'check'] );
+        $attr->test( $vd );
         $attr->setValue( $input );
     }
 
     public function testValidatorIgnoresComment()
     {
-        $attr = new Attribute( 'test', Attr::MANDATORY, Attr::SINGLE );
+        $vd = $this->getMockBuilder( 'stdClass' )
+            ->setMethods( [ '__invoke' ] )
+            ->getMock();
+        $vd->expects( $this->once() )
+            ->method( '__invoke' )
+            ->with( $this->identicalTo( 'ABC' ))
+            ->willReturn( true );
+
         $obj = new AttributeValue( 'ABC # comment' );
 
-        $attr->test( function ( $input ) {
-            $this->assertSame( 'ABC', $input );
-            return true;
-        } );
-
+        $attr = new Attribute( 'test', Attr::MANDATORY, Attr::SINGLE );
+        $attr->test( $vd );
         $attr->setValue( $obj );
     }
 
@@ -435,27 +497,68 @@ TXT;
 
         $attr->setValue( 'phpunit' );
         $array1 = iterator_to_array( $attr );
-        $this->assertEquals( ['phpunit'], $array1 );
+        $this->assertEquals( [ 'phpunit' ], $array1 );
     }
 
-    public function testGetSingleAtributeValueWithoutComment()
+    public function testAttributeArrayAccessIsset()
     {
-        $attr = new Attribute( 'test', Attr::MANDATORY, Attr::SINGLE );
-        $attr->setValue( 'foo # bar' );
+        $attr = new Attribute( 'test', Attr::MANDATORY, Attr::MULTIPLE );
+        $attr->setValue( [ 'foo', 'bar', 'baz' ] );
+
+        $this->assertTrue( isset( $attr[ 0 ] ) );
+        $this->assertTrue( isset( $attr[ -1 ] ) );
+        $this->assertFalse( isset( $attr[ 5 ] ) );
+    }
+
+    public function testAttributeArrayAccessGet()
+    {
+        $attr = new Attribute( 'test', Attr::MANDATORY, Attr::MULTIPLE );
+        $attr->setValue( [ 'foo', 'bar', 'baz' ] );
 
         $this->assertSame( 'foo', $attr[ 0 ] );
+        $this->assertSame( 'baz', $attr[ -1 ] );
     }
 
-    public function testGetSingleAtributeValueObject()
+    public function testAttributeArrayAccessSet()
     {
-        $obj = $this->createMock( ObjectInterface::class );
-        $obj->method( 'getHandle' )->willReturn( 'phpunit' );
-        $obj->method( 'getName' )->willReturn( 'exception' );
+        $attr = new Attribute( 'test', Attr::MANDATORY, Attr::MULTIPLE );
+        $attr->setValue( 'foo' );
+        // append
+        $attr[] = 'bar';
+        $this->assertCount( 2, $attr );
+        $this->assertSame( [ 'foo', 'bar' ], $attr->getValues() );
+        // edit by reverse index
+        $attr[ -1 ] = 'baz';
+        $this->assertCount( 2, $attr );
+        $this->assertSame( [ 'foo', 'baz' ], $attr->getValues() );
+        // ignore undefined index
+        $attr[ 3 ] = 'quux';
+        $this->assertSame( [ 'foo', 'baz' ], $attr->getValues() );
+    }
+
+    public function testAttributeArrayAccessUnset()
+    {
+        $attr = new Attribute( 'test', Attr::MANDATORY, Attr::MULTIPLE );
+        $attr->setValue( [ 'foo', 'bar', 'baz' ] );
+        unset( $attr[ 1 ] );
+
+        $this->assertSame( ['foo', 'baz'], $attr->getValue() );
+    }
+
+    public function testValueAccessCallsTransformer()
+    {
+        $tf = $this->createMock( TransformerInterface::class );
+        $tf->method( 'transform' )->will( $this->returnArgument( 0 ) );
+        $tf->expects( $this->once() )
+            ->method( 'reverseTransform' )
+            ->with( $this->isInstanceOf( AttributeValue::class ) )
+            ->will( $this->returnCallback( 'strval' ) );
 
         $attr = new Attribute( 'test', Attr::MANDATORY, Attr::SINGLE );
-        $attr->setValue( $obj );
+        $attr->apply( $tf );
+        $attr->setValue( 'phpunit' );
 
-        $this->assertInstanceOf( 'Exception', $attr[ 0 ] );
+        $this->assertSame( 'phpunit', $attr[ 0 ] );
     }
 
     public function testUndefinedValueOffsetReturnsNothing()
@@ -465,24 +568,12 @@ TXT;
         $this->assertNull( $attr[ 0 ] );
     }
 
-    public function testSetSingleAtributeValue()
-    {
-        $attr = new Attribute( 'test', Attr::MANDATORY, Attr::MULTIPLE );
-        $attr->apply( 'strtoupper' )->setValue( ['foo', 'bar'] );
-
-        $this->assertSame( 'BAR', $attr[ 1 ] );
-
-        $attr[ 1 ] = 'phpunit # test';
-        $this->assertSame( 'PHPUNIT', $attr[ 1 ] );
-        $this->assertSame( ['FOO', 'PHPUNIT # TEST'], $attr->getValue() );
-    }
-
     public function testRemoveSingleAttributeValue()
     {
         $attr = new Attribute( 'test', Attr::MANDATORY, Attr::MULTIPLE );
-        $attr->setValue( ['foo', 'bar'] );
+        $attr->setValue( [ 'foo', 'bar' ] );
 
         unset( $attr[ 0 ] );
-        $this->assertSame( ['bar'], $attr->getValue() );
+        $this->assertSame( [ 'bar' ], $attr->getValues() );
     }
 }

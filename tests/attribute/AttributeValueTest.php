@@ -2,11 +2,15 @@
 
 use Dormilich\RPSL\Attribute;
 use Dormilich\RPSL\AttributeValue;
+use Dormilich\RPSL\NamespaceAware;
 use Dormilich\RPSL\ObjectInterface;
+use phpmock\phpunit\PHPMock;
 use PHPUnit\Framework\TestCase;
 
 class AttributeValueTest extends TestCase
 {
+    use PHPMock;
+
     public function testAcceptsString()
     {
         $obj = new AttributeValue( 'test' );
@@ -27,13 +31,22 @@ class AttributeValueTest extends TestCase
 
     public function testAcceptsRpslObject()
     {
-        $obj = $this->createMock( ObjectInterface::class );
-        $obj->method( 'getName' )->willReturn( 'person' );
-        $obj->method( 'getHandle' )->willReturn( 'TEST12-RIPE' );
+        $data = $this->createMock( ObjectInterface::class );
+        $data->method( 'getName' )->willReturn( 'person' );
+        $data->method( 'getHandle' )->willReturn( 'TEST12-RIPE' );
 
-        $obj = new AttributeValue( $obj );
+        $obj = new AttributeValue( $data );
 
         $this->assertSame( 'TEST12-RIPE', $obj->value() );
+    }
+
+    public function testAcceptsSeparatedWebserviceData()
+    {
+        $obj = new AttributeValue( 'phpunit', 'test', null );
+
+        $this->assertSame( 'phpunit', $obj->value() );
+        $this->assertSame( 'test', $obj->comment() );
+        $this->assertSame( 'phpunit # test', (string) $obj );
     }
 
     /**
@@ -109,35 +122,9 @@ class AttributeValueTest extends TestCase
         $this->assertSame( '', ( string ) $obj );
     }
 
-    // JSON
-
-    public function testAcceptsJsonObject()
-    {
-        $json = file_get_contents( __DIR__ . '/_fixtures/attribute.json' );
-        $json = json_decode( $json, false );
-
-        $obj = new AttributeValue( $json );
-
-        $this->assertSame( 'PHPUNIT-TEST', $obj->value() );
-        $this->assertSame( 'foo', $obj->type() );
-        $this->assertSame( 'Filtered', $obj->comment() );
-    }
-
-    public function testAcceptsJsonArray()
-    {
-        $json = file_get_contents( __DIR__ . '/_fixtures/attribute.json' );
-        $json = json_decode( $json, true );
-
-        $obj = new AttributeValue( $json );
-
-        $this->assertSame( 'PHPUNIT-TEST', $obj->value() );
-        $this->assertSame( 'foo', $obj->type() );
-        $this->assertSame( 'Filtered', $obj->comment() );
-    }
-
     // object recreation
 
-    public function testGetRpslObject()
+    public function testGetObject()
     {
         $obj = $this->createMock( ObjectInterface::class );
         $obj->method( 'getHandle' )->willReturn( 'phpunit' );
@@ -151,10 +138,33 @@ class AttributeValueTest extends TestCase
     }
 
     /**
+     * @runInSeparateProcess
+     * @preserveGlobalState disabled
+     * @expectedException Dormilich\RPSL\Exceptions\InvalidValueException
+     */
+    public function testGetNamespacedObject()
+    {
+        // the return value will cause an exception, which is ok
+        // since we do not want the fake class to actually load
+        $fn = $this->getFunctionMock( 'Dormilich\RPSL', 'class_exists' );
+        $fn->expects( $this->once() )
+            ->with( $this->identicalTo( 'Ripe\Role' ) )
+            ->willReturn( false );
+
+        $obj = $this->createMock( [ ObjectInterface::class, NamespaceAware::class ] );
+        $obj->method( 'getHandle' )->willReturn( 'phpunit' );
+        $obj->method( 'getName' )->willReturn( 'role' );
+        $obj->method( 'getNamespace' )->willReturn( 'Ripe' );
+
+        $val = new AttributeValue( $obj );
+        $val->object();
+    }
+
+    /**
      * @expectedException Dormilich\RPSL\Exceptions\InvalidValueException
      * @expectedExceptionMessage The object type [foo-bar] cannot be converted to an RPSL object.
      */
-    public function testGetInvalidRpslObjectFails()
+    public function testGetInvalidObjectFails()
     {
         $obj = $this->createMock( ObjectInterface::class );
         $obj->method( 'getHandle' )->willReturn( 'TEST12-RPSL' );
