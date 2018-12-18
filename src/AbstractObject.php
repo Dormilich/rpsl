@@ -9,15 +9,15 @@ use Dormilich\RPSL\Exceptions\InvalidDataTypeException;
 use Dormilich\RPSL\Exceptions\InvalidValueException;
 
 /**
- * The prototype for every RPSL object class. 
+ * Define base functionality for RPSL objects:
+ *  - object configuration
+ *  - attribute access
+ *  - object validation
  * 
- * A child class must
- *  1) set the class name to the type’s name using CamelCase (inet6num => Inet6num, aut-num => AutNum)
- *  2) configure the attributes for the RPSL object
- *  3) if the primary key is not the same as the type, implement an appropriate converter
- * 
- * A child class should
- *  - set a "VERSION" constant
+ * Object configuration:
+ *  - the class name must match the type’s name (inet6num => Inet6num, aut-num => AutNum)
+ *  - if the primary key is not the same as the type, implement an appropriate converter
+ *  - there should be a "VERSION" constant to keep track of configuration changes
  */
 abstract class AbstractObject implements ObjectInterface, NamespaceAware, \ArrayAccess, \IteratorAggregate, \Countable, \JsonSerializable
 {
@@ -74,7 +74,7 @@ abstract class AbstractObject implements ObjectInterface, NamespaceAware, \Array
     /**
      * Set a generated attribute. These attributes are not serialised. Its values 
      * are only accessible from the object itself. Generated attributes are always 
-     * optional.
+     * considered optional.
      * 
      * @param string $name Name of the attribute.
      * @param boolean $multiple If the attribute allows multiple values.
@@ -106,11 +106,14 @@ abstract class AbstractObject implements ObjectInterface, NamespaceAware, \Array
      */
     public function toText()
     {
-        $max = 3 + max( array_map( 'strlen', $this->getAttributeNames() ) );
+        $keys = $this->getAttributeNames();
+        $max = 3 + max( array_map( 'strlen', $keys ) );
 
-        return array_reduce($this->toList(), function ($text, AttributeValue $item) use ($max) {
+        $values = $this->toList();
+
+        return array_reduce( $values, function ( $text, AttributeValue $item ) use ( $max ) {
             return $text .= sprintf( "%-{$max}s %s\n", $item->name() . ':', $item );
-        }, '');
+        }, '' );
     }
 
     /**
@@ -120,9 +123,11 @@ abstract class AbstractObject implements ObjectInterface, NamespaceAware, \Array
      */
     public function toList()
     {
+        $defined = $this->getDefinedAttributes();
+
         $values = array_map( function ( \JsonSerializable $attr ) {
             return $attr->jsonSerialize();
-        }, $this->getDefinedAttributes() );
+        }, $defined );
 
         return array_reduce( $values, 'array_merge', [] );
     }
@@ -140,13 +145,29 @@ abstract class AbstractObject implements ObjectInterface, NamespaceAware, \Array
     /**
      * Filter all attributes that are defined.
      * 
-     * @return array
+     * @return AttributeInterface[]
      */
     protected function getDefinedAttributes()
     {
-        return array_filter( $this->getAttributes(), function ( AttributeInterface $attr ) {
+        $attributes = $this->getAttributes();
+
+        return array_filter( $attributes, function ( AttributeInterface $attr ) {
             return $attr->isDefined();
-        });
+        } );
+    }
+
+    /**
+     * Filter all attributes that are mandatory.
+     * 
+     * @return AttributeInterface[]
+     */
+    protected function getRequiredAttributes()
+    {
+        $attributes = $this->getAttributes();
+
+        return array_filter( $attributes, function ( AttributeInterface $attr ) {
+            return $attr->isMandatory();
+        } );
     }
 
 // --- VALIDATION -----------------
@@ -158,9 +179,39 @@ abstract class AbstractObject implements ObjectInterface, NamespaceAware, \Array
      */
     public function isValid()
     {
-        return array_reduce( $this->getAttributes(), function ( $bool, AttributeInterface $attr ) {
-            return $bool and ( ! $attr->isRequired() or $attr->isDefined() );
+        $required = $this->getRequiredAttributes();
+
+        return array_reduce( $required, function ( $bool, AttributeInterface $attr ) {
+            return $bool and $attr->isDefined();
         }, true );
+    }
+
+    /**
+     * Get the names of all mandatory attributes.
+     * 
+     * @return string[]
+     */
+    public function getMandatoryAttributes()
+    {
+        $required = $this->getRequiredAttributes();
+
+        return array_keys( $required );
+    }
+
+    /**
+     * Get the names of all mandatory attributes that are not defined.
+     * 
+     * @return string[]
+     */
+    public function getMissingAttributes()
+    {
+        $required = $this->getRequiredAttributes();
+
+        $missing = array_filter( $required, function ( AttributeInterface $attr ) {
+            return ! $attr->isDefined();
+        } );
+
+        return array_keys( $missing );
     }
 
 // --- PHP INTERFACES -------------
