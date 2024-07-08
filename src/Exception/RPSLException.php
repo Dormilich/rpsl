@@ -1,6 +1,6 @@
 <?php
 
-namespace Dormilich\RPSL\Exceptions;
+namespace Dormilich\RPSL\Exception;
 
 use Throwable;
 
