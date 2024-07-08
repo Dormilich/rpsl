@@ -1,78 +1,97 @@
 <?php
-// ObjectInterface.php
 
 namespace Dormilich\RPSL;
 
-use Dormilich\RPSL\AttributeInterface;
-use Dormilich\RPSL\Exceptions\InvalidAttributeException;
-use Dormilich\RPSL\Exceptions\IncompleteObjectException;
+use Dormilich\RPSL\Attribute\Attribute;
+use Dormilich\RPSL\Attribute\Value;
+use Dormilich\RPSL\Exception\AttributeNotFoundException;
+use Dormilich\RPSL\Exception\TransformerException;
 
 interface ObjectInterface
 {
     /**
      * Get the name/type of the current RPSL object.
-     * 
+     *
      * @return string RPSL object name.
      */
-    public function getName();
+    public function getType(): string;
 
     /**
      * Get the value of the attribute(s) defined as primary key.
-     * 
-     * @return string
+     *
+     * @return string|null
      */
-    public function getHandle();
+    public function getHandle(): ?string;
 
     /**
      * Check if a specific attribute exists in this object.
-     * 
+     *
      * @param string $name Name of the attribute.
-     * @return boolean Whether the attribute exists
+     * @return bool Whether the attribute exists
      */
-    public function has( $name );
+    public function has(string $name): bool;
 
     /**
      * Get an attribute object specified by name.
-     * 
+     *
      * @param string $name Name of the attribute.
-     * @return AttributeInterface Attribute object.
-     * @throws InvalidAttributeException Invalid argument name.
+     * @return Attribute
+     * @throws AttributeNotFoundException
      */
-    public function attr( $name );
+    public function attr(string $name): Attribute;
 
     /**
-     * Get an attribute’s value(s). This may throw an exception if the attribute 
+     * Get an attribute’s value(s). This may throw an exception if the attribute
      * does not exist.
-     * 
+     *
      * @param string $name Attribute name.
-     * @return string[]|string|NULL Attribute value(s).
+     * @return mixed Attribute value(s).
+     * @throws AttributeNotFoundException
      */
-    public function get( $name );
+    public function get(string $name): mixed;
 
     /**
-     * Set an attribute’s value(s). This may throw an exception if multiple 
+     * Set an attribute’s value(s). This may throw an exception if multiple
      * values are not supported by the underlying attribute.
-     * 
+     *
      * @param string $name Attribute name.
-     * @param mixed $value Attibute value(s).
-     * @return self
+     * @param mixed $value Attribute value(s).
+     * @return static
+     * @throws AttributeNotFoundException
+     * @throws TransformerException
      */
-    public function set( $name, $value );
+    public function set(string $name, mixed $value): static;
 
     /**
-     * Add value(s) to an attribute. This may throw an exception if multiple 
+     * Add value(s) to an attribute. This may throw an exception if multiple
      * values are not supported by the underlying attribute.
-     * 
+     *
      * @param string $name Attribute name.
-     * @param mixed $value Attibute value(s).
-     * @return self
+     * @param mixed $value Attribute value(s).
+     * @return static
+     * @throws AttributeNotFoundException
+     * @throws TransformerException
      */
-    public function add( $name, $value );
+    public function add(string $name, mixed $value): static;
+
+    /**
+     * Returns all defined attributes.
+     *
+     * @return array<string, Attribute>
+     */
+    public function getAttributes(): array;
+
+    /**
+     * Returns all defined values.
+     *
+     * @return array<string, Value>
+     */
+    public function getValues(): array;
 
     /**
      * Check if any of the required Attributes is undefined.
-     * 
-     * @return boolean
+     *
+     * @return bool
      */
-    public function isValid();
+    public function isValid(): bool;
 }
