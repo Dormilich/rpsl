@@ -73,9 +73,9 @@ class Attribute implements ArrayAccess, Countable, RecursiveIterator
      * This will ignore inline comments. If comments should be displayed, use
      * iteration instead.
      *
-     * @return string[]|string|null
+     * @return mixed
      */
-    public function getValue(): array|string|null
+    public function getValue(): mixed
     {
         $values = $this->getValues();
 
@@ -191,11 +191,13 @@ class Attribute implements ArrayAccess, Countable, RecursiveIterator
     /**
      * Convert internal values to strings.
      *
-     * @return string[]
+     * @return array<int, mixed>
      */
     private function getValues(): array
     {
-        return array_map(fn(Value $value) => $value->getValue(), $this->values);
+        return array_map(function (Value $value) {
+            return $this->transformer->unserialize($value);
+        }, $this->values);
     }
 
     /**
@@ -240,7 +242,10 @@ class Attribute implements ArrayAccess, Countable, RecursiveIterator
         $values = [];
 
         foreach ($items as $item) {
-            $values[] = $this->transformer->serialize($item);
+            $value = $this->transformer->serialize($item);
+            if ($value->isDefined()) {
+                $values[] = $value;
+            }
         }
 
         return array_merge($this->values, $values);

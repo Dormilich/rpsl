@@ -148,7 +148,7 @@ abstract class Entity implements ArrayAccess, Countable, IteratorAggregate, Obje
     /**
      * @inheritDoc
      */
-    public function get(string $name): string|array|null
+    public function get(string $name): mixed
     {
         return $this->attr($name)->getValue();
     }

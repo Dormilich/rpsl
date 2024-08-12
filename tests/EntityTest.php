@@ -6,6 +6,7 @@ use Dormilich\RPSL\Attribute\Attribute;
 use Dormilich\RPSL\Attribute\Container;
 use Dormilich\RPSL\Attribute\Value;
 use Dormilich\RPSL\Entity;
+use Dormilich\RPSL\Transformer\DatetimeTransformer;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -96,5 +97,15 @@ class EntityTest extends TestCase
         $this->assertContainsOnlyInstancesOf(Value::class, $values);
         $this->assertSame('test', $values[0]->getName());
         $this->assertSame('phpunit', $values[0]->getValue());
+    }
+
+    #[Test, TestDox('get transformed value')]
+    public function get_transformed()
+    {
+        $object = new RpslObject('2020-02-02T12:34:56');
+        $object->attr('test')->apply(new DatetimeTransformer());
+
+        $value = $object->get('test');
+        $this->assertInstanceOf(\DateTimeInterface::class, $value);
     }
 }

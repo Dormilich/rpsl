@@ -56,7 +56,7 @@ class DefaultTransformer implements TransformerInterface
     /**
      * @inheritDoc
      */
-    public function unserialize(Value $value): ?string
+    public function unserialize(Value $value): mixed
     {
         return $value->isDefined() ? $value->getValue() : null;
     }
