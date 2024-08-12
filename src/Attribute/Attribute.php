@@ -42,9 +42,11 @@ class Attribute implements ArrayAccess, Countable, RecursiveIterator
      * @param Repeat $repeat Whether the attribute is allowed a single value at most.
      */
     public function __construct(
-        private readonly string $name, private readonly Presence $presence, private readonly Repeat $repeat
+        private readonly string $name,
+        private readonly Presence $presence,
+        private readonly Repeat $repeat
     ) {
-        $this->transformer = new DefaultTransformer($this);
+        $this->apply(new DefaultTransformer());
     }
 
     /**

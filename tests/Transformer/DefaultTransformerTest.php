@@ -24,7 +24,9 @@ class DefaultTransformerTest extends TestCase
             'getName' => 'test',
         ]);
 
-        return new DefaultTransformer($attribute);
+        $transformer = new DefaultTransformer();
+
+        return $transformer->setAttribute($attribute);
     }
 
     #[Test, TestDox('convert empty value')]

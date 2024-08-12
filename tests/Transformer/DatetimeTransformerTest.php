@@ -78,8 +78,7 @@ class DatetimeTransformerTest extends TestCase
         ]);
         $value = new Value($attribute, '2020-02-02T12:34:56Z');
         $transformer = new DatetimeTransformer();
-        $transformer->setAttribute($attribute);
-        $data = $transformer->serialize($value);
+        $data = $transformer->setAttribute($attribute)->serialize($value);
 
         $this->assertTrue($data->isDefined(), 'value is not defined');
         $this->assertSame('2020-02-02T12:34:56+00:00', $data->getValue());
@@ -127,8 +126,7 @@ class DatetimeTransformerTest extends TestCase
         $value = new Value($attribute, '2020-02-02T12:34:56Z');
         $setup = new \DateTime('now', new \DateTimeZone('Europe/Berlin'));
         $transformer = new DatetimeTransformer($setup);
-        $transformer->setAttribute($attribute);
-        $data = $transformer->unserialize($value);
+        $data = $transformer->setAttribute($attribute)->unserialize($value);
 
         $this->assertInstanceOf(\DateTime::class, $data);
         $this->assertSame('Europe/Berlin', $data->getTimezone()->getName());
@@ -145,8 +143,7 @@ class DatetimeTransformerTest extends TestCase
         $value = new Value($attribute, '2020-02-02T12:34:56Z');
         $setup = new \DateTimeImmutable('now', new \DateTimeZone('Europe/Berlin'));
         $transformer = new DatetimeTransformer($setup);
-        $transformer->setAttribute($attribute);
-        $data = $transformer->unserialize($value);
+        $data = $transformer->setAttribute($attribute)->unserialize($value);
 
         $this->assertInstanceOf(\DateTimeImmutable::class, $data);
         $this->assertSame('Europe/Berlin', $data->getTimezone()->getName());

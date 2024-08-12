@@ -20,21 +20,15 @@ class DefaultTransformer implements TransformerInterface
     private Attribute $attribute;
 
     /**
-     * @param Attribute $attribute
-     */
-    public function __construct(Attribute $attribute)
-    {
-        $this->setAttribute($attribute);
-    }
-
-    /**
      * @inheritDoc
      */
     public function setAttribute(Attribute $attribute): static
     {
-        $this->attribute = $attribute;
+        $that = clone $this;
 
-        return $this;
+        $that->attribute = $attribute;
+
+        return $that;
     }
 
     /**

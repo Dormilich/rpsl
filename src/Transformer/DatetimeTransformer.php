@@ -86,9 +86,11 @@ class DatetimeTransformer implements TransformerInterface
      */
     public function setAttribute(Attribute $attribute): static
     {
-        $this->attribute = $attribute;
+        $that = clone $this;
 
-        return $this;
+        $that->attribute = $attribute;
+
+        return $that;
     }
 
     /**
