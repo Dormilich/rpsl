@@ -108,4 +108,22 @@ class EntityTest extends TestCase
         $value = $object->get('test');
         $this->assertInstanceOf(\DateTimeInterface::class, $value);
     }
+
+    #[Test, TestDox('set value from object')]
+    public function set_object()
+    {
+        $object = new RpslObject('phpunit');
+        $object->set('foo', $object);
+
+        $this->assertSame(['phpunit'], $object->get('foo'));
+    }
+
+    #[Test, TestDox('set value from attribute')]
+    public function set_attribute()
+    {
+        $object = new RpslObject('phpunit');
+        $object->set('foo', $object->attr('test'));
+
+        $this->assertSame(['phpunit'], $object->get('foo'));
+    }
 }

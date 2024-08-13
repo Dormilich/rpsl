@@ -5,6 +5,7 @@ namespace Dormilich\RPSL\Attribute;
 use ArrayAccess;
 use Countable;
 use Dormilich\RPSL\Exception\TransformerException;
+use Dormilich\RPSL\ObjectInterface;
 use Dormilich\RPSL\Transformer\DefaultTransformer;
 use Dormilich\RPSL\Transformer\TransformerInterface;
 use RecursiveIterator;
@@ -212,6 +213,8 @@ class Attribute implements ArrayAccess, Countable, RecursiveIterator
     {
         if (is_string($value)) {
             return $this->splitBlockText($value);
+        } elseif ($value instanceof ObjectInterface) {
+            return [$value];
         } elseif ($value instanceof Traversable) {
             return iterator_to_array($value, false);
         } elseif (is_array($value)) {
