@@ -14,7 +14,7 @@ class AttributeNotFoundException extends OutOfBoundsException implements RPSLExc
      */
     public static function for(string $name, ObjectInterface $object): AttributeNotFoundException
     {
-        $message = sprintf('Attribute "%s" does not exist in the [%s] object.', $name, $object->getName());
+        $message = sprintf('Attribute "%s" does not exist in the [%s] object.', $name, $object->getType());
 
         return new AttributeNotFoundException($message);
     }

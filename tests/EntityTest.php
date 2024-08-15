@@ -4,8 +4,11 @@ namespace Dormilich\RPSL\Tests;
 
 use Dormilich\RPSL\Attribute\Attribute;
 use Dormilich\RPSL\Attribute\Container;
+use Dormilich\RPSL\Attribute\Presence;
+use Dormilich\RPSL\Attribute\Repeat;
 use Dormilich\RPSL\Attribute\Value;
 use Dormilich\RPSL\Entity;
+use Dormilich\RPSL\Exception\AttributeNotFoundException;
 use Dormilich\RPSL\Transformer\DatetimeTransformer;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -125,5 +128,27 @@ class EntityTest extends TestCase
         $object->set('foo', $object->attr('test'));
 
         $this->assertSame(['phpunit'], $object->get('foo'));
+    }
+
+    #[Test, TestDox('set value from value object')]
+    public function set_value()
+    {
+        $object = new RpslObject();
+
+        $attr = new Attribute('test', Presence::optional, Repeat::multiple);
+        $value = new Value($attr, 'phpunit', 'just a test');
+        $object->set('foo', $value);
+
+        $this->assertSame(['phpunit'], $object->get('foo'));
+    }
+
+    #[Test, TestDox('access unknown attribute')]
+    public function no_attribute_fails()
+    {
+        $this->expectException(AttributeNotFoundException::class);
+        $this->expectExceptionMessage('Attribute "bar" does not exist in the [test] object');
+
+        $object = new RpslObject();
+        $object->set('bar', 'test');
     }
 }
