@@ -118,6 +118,7 @@ class Attribute implements ArrayAccess, Countable, RecursiveIterator
     public function addValues(mixed $value): self
     {
         $values = $this->toIterable($value);
+        $values = $this->transformValues($values);
         $values = $this->combineValues($values);
 
         if ($this->isMultiple() or count($values) <= 1) {
@@ -176,11 +177,20 @@ class Attribute implements ArrayAccess, Countable, RecursiveIterator
     }
 
     /**
+     * Returns TRUE if at least one value is defined. I.e. if an attribute only
+     * contains empty values, it is considered empty as well.
+     *
      * @return bool
      */
     public function isDefined(): bool
     {
-        return $this->count() > 0;
+        foreach ($this->values as $value) {
+            if ($value->isDefined()) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -198,9 +208,7 @@ class Attribute implements ArrayAccess, Countable, RecursiveIterator
      */
     private function getValues(): array
     {
-        return array_map(function (Value $value) {
-            return $this->transformer->unserialize($value);
-        }, $this->values);
+        return array_map(fn(Value $value) => $this->transformer->unserialize($value), $this->values);
     }
 
     /**
@@ -213,12 +221,12 @@ class Attribute implements ArrayAccess, Countable, RecursiveIterator
     {
         if (is_string($value)) {
             return $this->splitBlockText($value);
+        } elseif (is_array($value)) {
+            return $value;
         } elseif ($value instanceof ObjectInterface) {
             return [$value];
         } elseif ($value instanceof Traversable) {
             return iterator_to_array($value, false);
-        } elseif (is_array($value)) {
-            return $value;
         } else {
             return [$value];
         }
@@ -236,21 +244,26 @@ class Attribute implements ArrayAccess, Countable, RecursiveIterator
     }
 
     /**
-     * Merge attribute values together and re-index the result array.
+     * Apply value transformation to the input.
      *
      * @param array $items
      * @return Value[]
      * @throws TransformerException
      */
+    private function transformValues(array $items): array
+    {
+        return array_map(fn($item) => $this->transformer->serialize($item), $items);
+    }
+
+    /**
+     * Merge attribute values together and re-index the result array.
+     *
+     * @param Value[] $items
+     * @return Value[]
+     */
     private function combineValues(array $items): array
     {
-        $values = [];
-
-        foreach ($items as $item) {
-            $values[] = $this->transformer->serialize($item);
-        }
-
-        return array_merge($this->values, $values);
+        return array_merge($this->values, $items);
     }
 
     ### Countable ###
