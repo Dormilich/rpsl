@@ -4,7 +4,7 @@ namespace Dormilich\RPSL;
 
 use Dormilich\RPSL\Attribute\Attribute;
 use Dormilich\RPSL\Attribute\Value;
-use Dormilich\RPSL\Exception\AttributeNotFoundException;
+use Dormilich\RPSL\Exception\AttributeException;
 use Dormilich\RPSL\Exception\TransformerException;
 
 interface ObjectInterface
@@ -36,7 +36,7 @@ interface ObjectInterface
      *
      * @param string $name Name of the attribute.
      * @return Attribute
-     * @throws AttributeNotFoundException
+     * @throws AttributeException
      */
     public function attr(string $name): Attribute;
 
@@ -46,7 +46,7 @@ interface ObjectInterface
      *
      * @param string $name Attribute name.
      * @return mixed Attribute value(s).
-     * @throws AttributeNotFoundException
+     * @throws AttributeException
      */
     public function get(string $name): mixed;
 
@@ -57,7 +57,7 @@ interface ObjectInterface
      * @param string $name Attribute name.
      * @param mixed $value Attribute value(s).
      * @return static
-     * @throws AttributeNotFoundException
+     * @throws AttributeException
      * @throws TransformerException
      */
     public function set(string $name, mixed $value): static;
@@ -69,7 +69,7 @@ interface ObjectInterface
      * @param string $name Attribute name.
      * @param mixed $value Attribute value(s).
      * @return static
-     * @throws AttributeNotFoundException
+     * @throws AttributeException
      * @throws TransformerException
      */
     public function add(string $name, mixed $value): static;
@@ -82,7 +82,7 @@ interface ObjectInterface
     public function getAttributes(): array;
 
     /**
-     * Returns all defined values.
+     * Returns all values.
      *
      * @return array<string, Value>
      */

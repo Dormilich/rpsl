@@ -9,7 +9,7 @@ use Dormilich\RPSL\Attribute\Container;
 use Dormilich\RPSL\Attribute\Presence;
 use Dormilich\RPSL\Attribute\Repeat;
 use Dormilich\RPSL\Attribute\Value;
-use Dormilich\RPSL\Exception\AttributeNotFoundException;
+use Dormilich\RPSL\Exception\AttributeException;
 use Dormilich\RPSL\Exception\ConfigurationException;
 use Dormilich\RPSL\Exception\TransformerException;
 use IteratorAggregate;
@@ -142,7 +142,7 @@ abstract class Entity implements ArrayAccess, Countable, IteratorAggregate, Obje
             return $attribute;
         }
 
-        throw AttributeNotFoundException::for($name, $this);
+        throw AttributeException::notFound($name, $this);
     }
 
     /**
@@ -248,7 +248,7 @@ abstract class Entity implements ArrayAccess, Countable, IteratorAggregate, Obje
      *
      * @param string|int $offset
      * @return Attribute
-     * @throws AttributeNotFoundException
+     * @throws AttributeException
      */
     public function offsetGet(mixed $offset): Attribute
     {
@@ -261,7 +261,7 @@ abstract class Entity implements ArrayAccess, Countable, IteratorAggregate, Obje
      * @param string|int|null $offset
      * @param mixed $value
      * @return void
-     * @throws AttributeNotFoundException
+     * @throws AttributeException
      * @throws TransformerException
      */
     public function offsetSet(mixed $offset, mixed $value): void

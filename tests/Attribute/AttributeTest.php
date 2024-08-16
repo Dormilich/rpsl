@@ -7,6 +7,7 @@ use Dormilich\RPSL\Attribute\Container;
 use Dormilich\RPSL\Attribute\Value;
 use Dormilich\RPSL\Attribute\Presence;
 use Dormilich\RPSL\Attribute\Repeat;
+use Dormilich\RPSL\Exception\AttributeException;
 use Dormilich\RPSL\Transformer\DefaultTransformer;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -140,16 +141,17 @@ class AttributeTest extends TestCase
         $this->assertSame(['foo', 'bar'], $attribute->getValue());
     }
 
-    #[Test, TestDox('add value to single attribute is ignored')]
+    #[Test, TestDox('add value to single attribute fails')]
     public function add_single_value()
     {
+        $this->expectException(AttributeException::class);
+        $this->expectExceptionCode(AttributeException::ARGUMENT_PLURALITY_SINGLE);
+        $this->expectExceptionMessage('Cannot add multiple values to single attribute "test".');
+
         $attribute = new Attribute('test', Presence::mandatory, Repeat::single);
 
         $attribute->setValue('foo');
         $attribute->addValues('bar');
-
-        $this->assertCount(1, $attribute);
-        $this->assertSame('foo', $attribute->getValue());
     }
 
     #[Test, TestDox('iterate attribute yields value objects')]

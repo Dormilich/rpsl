@@ -8,7 +8,7 @@ use Dormilich\RPSL\Attribute\Presence;
 use Dormilich\RPSL\Attribute\Repeat;
 use Dormilich\RPSL\Attribute\Value;
 use Dormilich\RPSL\Entity;
-use Dormilich\RPSL\Exception\AttributeNotFoundException;
+use Dormilich\RPSL\Exception\AttributeException;
 use Dormilich\RPSL\Transformer\DatetimeTransformer;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -145,7 +145,8 @@ class EntityTest extends TestCase
     #[Test, TestDox('access unknown attribute')]
     public function no_attribute_fails()
     {
-        $this->expectException(AttributeNotFoundException::class);
+        $this->expectException(AttributeException::class);
+        $this->expectExceptionCode(AttributeException::ATTRIBUTE_NOT_FOUND);
         $this->expectExceptionMessage('Attribute "bar" does not exist in the [test] object');
 
         $object = new RpslObject();

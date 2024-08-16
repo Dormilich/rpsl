@@ -3,7 +3,7 @@
 namespace Dormilich\RPSL\Exception;
 
 use Dormilich\RPSL\Attribute\Attribute;
-use RuntimeException;
+use Exception;
 use Throwable;
 
 use function get_debug_type;
@@ -12,7 +12,7 @@ use function json_encode;
 /**
  * Thrown when data conversion fails.
  */
-class TransformerException extends RuntimeException implements RPSLException
+class TransformerException extends Exception implements RPSLException
 {
     public const INVALID_DATA_TYPE = 4001;
     public const INVALID_VALUE = 4003;

@@ -4,6 +4,7 @@ namespace Dormilich\RPSL\Attribute;
 
 use ArrayAccess;
 use Countable;
+use Dormilich\RPSL\Exception\AttributeException;
 use Dormilich\RPSL\Exception\TransformerException;
 use Dormilich\RPSL\ObjectInterface;
 use Dormilich\RPSL\Transformer\DefaultTransformer;
@@ -44,8 +45,8 @@ class Attribute implements ArrayAccess, Countable, RecursiveIterator
      */
     public function __construct(
         private readonly string $name,
-        private readonly Presence $presence,
-        private readonly Repeat $repeat
+        private readonly Presence $presence = Presence::optional,
+        private readonly Repeat $repeat = Repeat::multiple
     ) {
         $this->apply(new DefaultTransformer());
     }
@@ -113,6 +114,7 @@ class Attribute implements ArrayAccess, Countable, RecursiveIterator
      *
      * @param mixed $value
      * @return self
+     * @throws AttributeException
      * @throws TransformerException
      */
     public function addValues(mixed $value): self
@@ -121,9 +123,11 @@ class Attribute implements ArrayAccess, Countable, RecursiveIterator
         $values = $this->transformValues($values);
         $values = $this->combineValues($values);
 
-        if ($this->isMultiple() or count($values) <= 1) {
-            $this->values = $values;
+        if ($this->isSingle() and count($values) > 1) {
+            throw AttributeException::singlePlurality($this);
         }
+
+        $this->values = $values;
 
         return $this;
     }
