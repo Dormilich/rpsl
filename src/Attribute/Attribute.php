@@ -247,10 +247,7 @@ class Attribute implements ArrayAccess, Countable, RecursiveIterator
         $values = [];
 
         foreach ($items as $item) {
-            $value = $this->transformer->serialize($item);
-            if ($value->isDefined()) {
-                $values[] = $value;
-            }
+            $values[] = $this->transformer->serialize($item);
         }
 
         return array_merge($this->values, $values);
