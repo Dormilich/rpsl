@@ -47,6 +47,7 @@ interface ObjectInterface
      * @param string $name Attribute name.
      * @return mixed Attribute value(s).
      * @throws AttributeException
+     * @throws TransformerException
      */
     public function get(string $name): mixed;
 

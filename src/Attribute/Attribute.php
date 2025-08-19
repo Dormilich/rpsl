@@ -78,6 +78,7 @@ class Attribute implements ArrayAccess, Countable, RecursiveIterator
      * iteration instead.
      *
      * @return mixed
+     * @throws TransformerException
      */
     public function getValue(): mixed
     {
@@ -97,6 +98,8 @@ class Attribute implements ArrayAccess, Countable, RecursiveIterator
      *
      * @param mixed $value
      * @return self
+     * @throws AttributeException
+     * @throws TransformerException
      */
     public function setValue(mixed $value): self
     {
@@ -209,6 +212,7 @@ class Attribute implements ArrayAccess, Countable, RecursiveIterator
      * Convert internal values to strings.
      *
      * @return array<int, mixed>
+     * @throws TransformerException
      */
     private function getValues(): array
     {
@@ -370,6 +374,8 @@ class Attribute implements ArrayAccess, Countable, RecursiveIterator
      * @param string|int|null $offset
      * @param mixed $value
      * @return void
+     * @throws AttributeException
+     * @throws TransformerException
      */
     public function offsetSet(mixed $offset, mixed $value): void
     {

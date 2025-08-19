@@ -103,6 +103,8 @@ abstract class Entity implements ArrayAccess, Countable, IteratorAggregate, Obje
      *
      * @param string|null $handle
      * @return void
+     * @throws AttributeException
+     * @throws TransformerException
      */
     protected function setHandle(?string $handle): void
     {
@@ -274,6 +276,8 @@ abstract class Entity implements ArrayAccess, Countable, IteratorAggregate, Obje
      *
      * @param string|int $offset
      * @return void
+     * @throws AttributeException
+     * @throws TransformerException
      */
     public function offsetUnset(mixed $offset): void
     {
