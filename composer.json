@@ -2,7 +2,7 @@
     "name": "dormilich/rpsl",
     "description": "Define base functionality for RPSL (whois) objects",
     "type": "library",
-    "license": "LGPL-3.0",
+    "license": "LGPL-3.0-or-later",
     "authors": [
         {
             "name": "Bertold von Dormilich",
